@@ -345,20 +345,12 @@ def callback(request):
 
 					#推播
 					elif "aaa" in text:
-						corrects = Member.objects.filter(password= "line")
-						all_id = []
-						for correct in corrects:
-							all_id.append(correct.email)
-						#推一個人才是用push
-						try:
-							message1 = TextSendMessage(text="Crobot提醒你吃藥拉")
-							message2 = StickerSendMessage(package_id = "2" , sticker_id = "514")
-							message = [message1, message2]
-							line_bot_api.multicast(all_id,message)
-						except:
-							pass
+						push_line_all()
 						message = TextSendMessage(text="已完成推播")
 						#Dialog.objects.create(content=text, member=name)
+
+					elif "bbb" in text:
+						push_line_one(pk)
 
 
 					
@@ -456,8 +448,7 @@ def callback(request):
 			pass
 		return HttpResponse()
 
-def push_to_line():
-	print("it works!!")
+def push_line_all():
 	try:
 		corrects = Member.objects.filter(password= "line")
 		all_id = []
@@ -468,10 +459,30 @@ def push_to_line():
 		message = [message1, message2]
 		line_bot_api.multicast(all_id, message)
 	except:
-		message1 = TextSendMessage(text="Crobot來暖心提醒囉！\n最近天氣很熱\n開冷氣之餘也記得別別調太低溫，以免感冒唷！\n若出現感冒症狀，請立刻使用Crobot的症狀查詢功能，以免病情加重，Crobot團隊關心您！")
-		message2 = StickerSendMessage(package_id = "2" , sticker_id = "34")
-		message = [message1, message2]
-		line_bot_api.push_message("U5a0d8b9ae15cffae4394c1772d9487de", message)
+		pass
+
+def push_line_one(line_id):
+	try:
+		message = TemplateSendMessage(
+			alt_text='Button template',
+			template=ButtonsTemplate(
+				text="Crobot提醒你吃藥拉",
+				actions=[
+					MessageTemplateAction(
+						label='明天也繼續提醒我吧',
+						text='明天也繼續提醒我吧',
+					),
+					MessageTemplateAction(
+						label='明天不用了',
+						text='明天不用了'
+					)
+				]
+			)
+		)
+		line_bot_api.push_message(line_id, message)
+	except:
+		pass
+
 
 
 
