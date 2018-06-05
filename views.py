@@ -302,8 +302,6 @@ def callback(request):
 					try:
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
-						'''member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
-						name = Member.objects.get(pk=pk)'''
 
 					#若沒pk,將使用者加到Member資料庫
 					except:
@@ -348,9 +346,9 @@ def callback(request):
 						push_line_all()
 						message = TextSendMessage(text="已完成推播")
 						#Dialog.objects.create(content=text, member=name)
-
+					#吃藥
 					elif "bbb" in text:
-						push_line_one(pk)
+						push_line_one(who.email)
 
 
 					
