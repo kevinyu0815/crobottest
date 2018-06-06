@@ -135,10 +135,6 @@ def response_line(pk, text):
 		elif key.response_type == 3:
 			if ';' in key.response:
 				response = key.response.split(';')
-				# unit = Dialog.objects.create(content=response[0], member=name, who=False, from_key=key)
-				# unit.save()
-				# unit = Dialog.objects.create(content=response[1], member=name, who=False, from_key=key)
-				# unit.save()
 				for i in range(0,len(response),1):
 					Dialog.objects.create(content=response[i], member=name, who=False, from_key=key)
 				back = {'type': 3, 'text': key.response}
@@ -166,10 +162,6 @@ def response_line(pk, text):
 		elif key.response_type == 3:
 			if ';' in key.response:
 				response = key.response.split(';')
-				# unit = Dialog.objects.create(content=response[0], member=name, who=False, from_key=key)
-				# unit.save()
-				# unit = Dialog.objects.create(content=response[1], member=name, who=False, from_key=key)
-				# unit.save()
 				for i in range(0,len(response),1):
 					Dialog.objects.create(content=response[i], member=name, who=False, from_key=key)
 				back = {'type': 3, 'text': key.response}
@@ -188,8 +180,14 @@ def response_line(pk, text):
 
 
 		for t in tomorrow(str((oneTime.hour+8)%24)+":"+str(oneTime.minute)):
+			url = "https://140.119.19.33:8080/schedule"
 
-		   auto_remind(t, pk)  # TODO.......................................................
+			# try:
+			requests.post(url, json={'time': t, 'line_id': name.email})
+			print (name.email)
+			# except:
+			#     print('fail')
+			  # TODO.......................................................
 		Dialog.objects.create(content='好的明天同時間提醒您', member=name, who=False)
 		back = {'type': 1, 'text': '好的明天同時間提醒您'}
 
@@ -204,7 +202,12 @@ def response_line(pk, text):
 			for oneTime in set_time:
 				# a = int(set_time[i][0])
 				# b = int(set_time[i][1])
-				auto_remind(oneTime,pk)
+				url = "https://140.119.19.33:8080/schedule"
+				# try:
+				requests.post(url, json={'time': oneTime, 'line_id': name.email})
+				print (name.email)
+				# except:
+				#     print('fail')
 			Dialog.objects.create(content='已為您設好時間', member=name, who=False)
 			back = {'type': 1, 'text': '已為您設好時間'}
 
@@ -262,12 +265,23 @@ def response_line(pk, text):
 	return back
 
 
+# line API
+def schedule(request):
+	if request.method == 'POST':
+		time = request.POST["time"]
+		line_id = request.POST["line_id"]
+		Schedule.objects.create(func='dialog.tasks.line',
+								# hook = '',
+								args=line_id,
+								# kwargs={'title': "hi", 'text': 'trash'},
 
+								schedule_type=Schedule.ONCE,
+								next_run=time
+								)
+# def call_line(request):
+#     push_line_one(line_id)
 
-
-#line API
 def callback(request):
-
 	if request.method == 'POST':
 		signature = request.META['HTTP_X_LINE_SIGNATURE']
 		body = request.body.decode('utf-8')
@@ -278,98 +292,94 @@ def callback(request):
 		except LineBotApiError:
 			return HttpResponseBadRequest()
 
-		
 		for event in events:
-			#加好友事件
+			# 加好友事件
 			if isinstance(event, FollowEvent):
-				#將id加到資料庫
+				# 將id加到資料庫
 				line_id = event.source.user_id
 				profile = line_bot_api.get_profile(event.source.user_id)
 				line_name = profile.display_name
 				'''Member.objects.create(name=line_name+"_line", email=line_id, password="line")'''
-				message1 = TextSendMessage(text= line_name+"\n歡迎你跟Crobot做朋友!\n快來和Crobot做朋友吧!")
-				message2 = StickerSendMessage(package_id = "1" , sticker_id = "2")
+				message1 = TextSendMessage(text=line_name + "\n歡迎你跟Crobot做朋友!\n快來和Crobot做朋友吧!")
+				message2 = StickerSendMessage(package_id="1", sticker_id="2")
 				message = [message1, message2]
 				line_bot_api.reply_message(event.reply_token, message)
 
 
-			#訊息事件
+			# 訊息事件
 			elif isinstance(event, MessageEvent):
-				#文字訊息
+				# 文字訊息
 				if isinstance(event.message, TextMessage):
-					#抓text, pk
+					# 抓text, pk
 					text = event.message.text
 					try:
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
 
-					#若沒pk,將使用者加到Member資料庫
+					# 若沒pk,將使用者加到Member資料庫
 					except:
 						line_id = event.source.user_id
 						profile = line_bot_api.get_profile(event.source.user_id)
 						line_name = profile.display_name
-						Member.objects.create(name=line_name+"_line", email=line_id, password="line")
-						message = TextSendMessage(text= "等等，你還沒被加進資料庫,沒有pk\n立刻完成動作--\n已加到資料庫!\n再傳一次吧")
-						#line_bot_api.reply_message(event.reply_token, message)
+						Member.objects.create(name=line_name + "_line", email=line_id, password="line")
+						message = TextSendMessage(text="等等，你還沒被加進資料庫,沒有pk\n立刻完成動作--\n已加到資料庫!\n再傳一次吧")
+						# line_bot_api.reply_message(event.reply_token, message)
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
 
-
-
-					#line自訂狀況
+					# line自訂狀況
 					if text == "測試":
-						message1 = TextSendMessage(text= "你的ID : " + event.source.user_id)
-						#message1 = TextSendMessage(text= str(all_id))
+						message1 = TextSendMessage(text="你的ID : " + event.source.user_id)
+						# message1 = TextSendMessage(text= str(all_id))
 						profile = line_bot_api.get_profile(event.source.user_id)
-						message2 = TextSendMessage(text= "你的名字 : " + profile.display_name)
-						message3 = TextSendMessage(text= "你的照片 : " + profile.picture_url)
+						message2 = TextSendMessage(text="你的名字 : " + profile.display_name)
+						message3 = TextSendMessage(text="你的照片 : " + profile.picture_url)
 						message = [message1, message2, message3]
-						#Dialog.objects.create(content=text, member=name)
+					# Dialog.objects.create(content=text, member=name)
 
 					elif text == "資料庫id":
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
 						message = TextSendMessage(text=pk)
-						#Dialog.objects.create(content=text, member=name)
+					# Dialog.objects.create(content=text, member=name)
 
-					#為推播做準備的"全部id"
+					# 為推播做準備的"全部id"
 					elif text == "抓全部id":
-						corrects = Member.objects.filter(password= "line")
+						corrects = Member.objects.filter(password="line")
 						all_id = []
 						for correct in corrects:
 							all_id.append(correct.email)
-						message = TextSendMessage(text= str(all_id))
-						#Dialog.objects.create(content=text, member=name)
+						message = TextSendMessage(text=str(all_id))
+					# Dialog.objects.create(content=text, member=name)
 
-					#推播
+					# 推播
 					elif "aaa" in text:
 						push_line_all()
 						message = TextSendMessage(text="已完成推播")
-						#Dialog.objects.create(content=text, member=name)
-					#吃藥
+					# Dialog.objects.create(content=text, member=name)
+					# 吃藥
 					elif "bbb" in text:
 						push_line_one(who.email)
 
 
-					
-					#尋找醫院
-					elif text == "尋找醫院":
+
+					# 尋找醫院
+					elif "尋找醫院" in text:
 						message1 = TextSendMessage(text="Crobot不知道你在哪裡><\n傳送位置訊息給我吧!\n教學如下↓")
 						message2 = TextSendMessage(text="鍵盤>箭頭>加號>位置訊息>公開所在位置\n這樣Crobot就可以幫你定位囉!")
 						message = [message1, message2]
-						#Dialog.objects.create(content=text, member=name)
 
-					#使用response_line(pk, text回訊息)
+					# 使用response_line(pk, text回訊息)
 					else:
 						back = response_line(pk, text)
 						if back['type'] == 1:
 							if "？" in back['text']:
 								message1 = TextSendMessage(text=back['text'])
-								message2 = StickerSendMessage(package_id = "2" , sticker_id = "149")
+								message2 = StickerSendMessage(package_id="2", sticker_id="149")
 								message = [message1, message2]
 							elif "~" in back['text']:
 								message1 = TextSendMessage(text=back['text'])
-								message2 = StickerSendMessage(package_id = "3" , sticker_id = "184")
+								message2 = StickerSendMessage(package_id="3", sticker_id="184")
 								message = [message1, message2]
 							else:
 								message = TextSendMessage(text=back['text'])
@@ -377,44 +387,46 @@ def callback(request):
 						elif back['type'] == 2:
 							response = back['text'].split(';')
 							choices = response[1].split(',')
-							action=[]
+							action = []
 							for choice in choices:
 								action.append(MessageTemplateAction(
-											label=choice,
-											text=choice))
+									label=choice,
+									text=choice))
 
 							message = TemplateSendMessage(
 								alt_text='Button template',
 								template=ButtonsTemplate(
 									text=response[0],
-									actions = action
+									actions=action
 								)
 							)
 						elif back['type'] == 3:
 							if ";" in back['text']:
-								response = back['text'].split(';')
-								message1 = TextSendMessage(text=response[1])
-								message2 = ImageSendMessage(
-									original_content_url=response[0],
-									preview_image_url=response[0]
+								responses = back['text'].split(';')
+								message1 = ImageSendMessage(
+									original_content_url=responses[0],
+									preview_image_url=responses[0]
 								)
-								message = [message1, message2]
+								message = [message1]
+								for response in responses[1:]:
+									message.append(TextSendMessage(text=response))
+
 							else:
 								message = ImageSendMessage(
 									original_content_url=back['text'],
 									preview_image_url=back['text']
 								)
 
-					#用api回以上任何狀況的訊息!!! 沒有這行line用戶是看不到訊息的
+					# 用api回以上任何狀況的訊息!!! 沒有這行line用戶是看不到訊息的
 					line_bot_api.reply_message(event.reply_token, message)
 
-				#貼圖訊息
+				# 貼圖訊息
 				elif isinstance(event.message, StickerMessage):
 					message = TextSendMessage(text="抱歉Crobot目前沒辦法解讀非文字訊息！但我會隨機生成貼圖XD")
-					message2 = StickerSendMessage(package_id = "2" , sticker_id = random.randint(140,179))
-					line_bot_api.reply_message(event.reply_token,[message, message2])
+					message2 = StickerSendMessage(package_id="2", sticker_id=random.randint(140, 179))
+					line_bot_api.reply_message(event.reply_token, [message, message2])
 
-				#位置訊息
+				# 位置訊息
 				elif isinstance(event.message, LocationMessage):
 					message = LocationSendMessage(
 						title='回傳位置',
@@ -422,42 +434,47 @@ def callback(request):
 						latitude=event.message.latitude,
 						longitude=event.message.longitude
 					)
-					#line_bot_api.reply_message(event.reply_token,message)
+					# line_bot_api.reply_message(event.reply_token,message)
 					lat = str(event.message.latitude)
 					lng = str(event.message.longitude)
-					line_bot_api.reply_message(event.reply_token,TextSendMessage(text="https://crobottest.herokuapp.com/location/"+lat+'-'+lng))
+					line_bot_api.reply_message(event.reply_token, TextSendMessage(
+						text="https://crobottest.herokuapp.com/location/" + lat + '-' + lng))
 
-				#其餘訊息
+				# 其餘訊息
 				else:
-					line_bot_api.reply_message(event.reply_token,TextSendMessage(text="其餘事件"))
+					line_bot_api.reply_message(event.reply_token, TextSendMessage(text="其餘事件"))
 
 		return HttpResponse()
 	else:
 		try:
-			corrects = Member.objects.filter(password= "line")
+			corrects = Member.objects.filter(password="line")
 			all_id = []
 			for correct in corrects:
 				all_id.append(correct.email)
-			message1 = TextSendMessage(text="Crobot來暖心提醒囉！\n最近天氣很熱\n開冷氣之餘也記得別別調太低溫，以免感冒唷！\n若出現感冒症狀，請立刻使用Crobot的症狀查詢功能，以免病情加重，Crobot團隊關心您！")
-			message2 = StickerSendMessage(package_id = "2" , sticker_id = "34")
+			message1 = TextSendMessage(
+				text="Crobot來暖心提醒囉！\n最近天氣很熱\n開冷氣之餘也記得別別調太低溫，以免感冒唷！\n若出現感冒症狀，請立刻使用Crobot的症狀查詢功能，以免病情加重，Crobot團隊關心您！")
+			message2 = StickerSendMessage(package_id="2", sticker_id="34")
 			message = [message1, message2]
 			line_bot_api.multicast(all_id, message)
 		except:
 			pass
 		return HttpResponse()
 
+
 def push_line_all():
 	try:
-		corrects = Member.objects.filter(password= "line")
+		corrects = Member.objects.filter(password="line")
 		all_id = []
 		for correct in corrects:
 			all_id.append(correct.email)
-		message1 = TextSendMessage(text="Crobot來暖心提醒囉！\n最近天氣很熱\n開冷氣之餘也記得別別調太低溫，以免感冒唷！\n若出現感冒症狀，請立刻使用Crobot的症狀查詢功能，以免病情加重，Crobot團隊關心您！")
-		message2 = StickerSendMessage(package_id = "2" , sticker_id = "34")
+		message1 = TextSendMessage(
+			text="Crobot來暖心提醒囉！\n最近天氣很熱\n開冷氣之餘也記得別別調太低溫，以免感冒唷！\n若出現感冒症狀，請立刻使用Crobot的症狀查詢功能，以免病情加重，Crobot團隊關心您！")
+		message2 = StickerSendMessage(package_id="2", sticker_id="34")
 		message = [message1, message2]
 		line_bot_api.multicast(all_id, message)
 	except:
 		pass
+
 
 def push_line_one(line_id):
 	try:
@@ -482,12 +499,9 @@ def push_line_one(line_id):
 		pass
 
 
-
-
-
 def get_res(text, port=8000):
 
-	url = "https://crobottest.herokuapp.com/chatterbot/"
+	url = "http://140.119.19.33:{}/chatterbot/".format(port)
 
 
 
@@ -530,18 +544,27 @@ def which_fun(str):
 
 def refresh(request, pk):
 	dialog = Dialog.objects.filter(member=Member.objects.get(pk=pk))
+	member = Member.objects.filter(pk=pk)
 	# #if dialog[len(dialog) - 1].time:
 	# for d in dialog:
 	#     if datetime.isoformat()
 	newMessage = []
 
-	for d in dialog:
-		if int(d.id)> int(request.GET['last_id']) and '/' in d.content:
-			newMessage.append(('youshouldrefresh', d.content))
-		elif int(d.id)> int(request.GET['last_id']) and d.who:
-			newMessage.append(('message',d.content,d.id))
-		elif int(d.id)> int(request.GET['last_id']) and not d.who:
-			newMessage.append(('message2', d.content,d.id))
+	if request.GET.get('playerid',''):
+		playerid = request.GET.get('playerid','')
+		member.update(playerid = playerid)
+
+		newMessage.append(playerid)
+	elif request.GET.get('last_id',''):
+
+
+		for d in dialog:
+			if int(d.id)> int(request.GET.get('last_id','')) and '/' in d.content:
+			   newMessage.append(('youshouldrefresh', d.content))
+			elif int(d.id)> int(request.GET.get('last_id','')) and d.who:
+			   newMessage.append(('message',d.content+"("+d.time+")",d.id))
+			elif int(d.id)> int(request.GET.get('last_id','')) and not d.who:
+			   newMessage.append(('message2', d.content+d.time.strftime("(%Y年%m月%d日 %H:%M)"),d.id))
 
 	return JsonResponse(newMessage, safe=False)
 
@@ -551,8 +574,10 @@ def login(request):
 	if request.method == "POST":
 		email = request.POST["email"]
 		password = request.POST["password"]
+
 		try:
 			correct = Member.objects.get(email=email)
+
 		# 用filter 才要 correct = correct[0]
 		except:
 			correct = None
@@ -578,7 +603,8 @@ def register(request):
 		password = request.POST["password"]
 		gender = request.POST["gender"]
 		birthday = request.POST["birthday"]
-		new_member = Member.objects.create(name=name, gender=gender, email=email, password=password, birthday=birthday)
+		new_member = Member.objects.create(name=name, gender=gender, email=email, password=password, birthday=birthday,
+										   playerid = '')
 		new_member.save()
 
 		return redirect('/')
@@ -589,6 +615,8 @@ def register(request):
 
 
 def post(request, pk):
+
+
 
 	member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
 	name = Member.objects.get(pk=pk)
@@ -620,13 +648,13 @@ def post(request, pk):
 			elif key.response_type == 3:
 				if ';' in key.response:
 					response = key.response.split(';')
-					# unit = Dialog.objects.create(content=response[0], member=name, who=False, from_key=key)
-					# unit.save()
-					# unit = Dialog.objects.create(content=response[1], member=name, who=False, from_key=key)
-					# unit.save()
 					for i in range(0,len(response),1):
 						unit = Dialog.objects.create(content=response[i], member=name, who=False, from_key=key)
 						unit.save()
+					if '/static/images/member' in key.response:
+						choice = "T"
+						mem = ['陽承霖','林士翔','陳瑞涓','游智凱','王超']
+						all = mem
 				else:
 					unit = Dialog.objects.create(content=key.response, member=name, who=False, from_key=key)
 					unit.save()
@@ -650,13 +678,13 @@ def post(request, pk):
 			elif key.response_type == 3:
 				if ';' in key.response:
 					response = key.response.split(';')
-					# unit = Dialog.objects.create(content=response[0], member=name, who=False, from_key=key)
-					# unit.save()
-					# unit = Dialog.objects.create(content=response[1], member=name, who=False, from_key=key)
-					# unit.save()
 					for i in range(0,len(response),1):
 						unit = Dialog.objects.create(content=response[i], member=name, who=False, from_key=key)
 						unit.save()
+					if '/static/images/member' in key.response:
+						choice = "T"
+						mem = ['陽承霖','林士翔','陳瑞涓','游智凱','王超']
+						all = mem
 				else:
 					unit = Dialog.objects.create(content=key.response, member=name, who=False, from_key=key)
 					unit.save()
@@ -752,7 +780,7 @@ def post(request, pk):
 
 
 
-	time.sleep(1)
+	# time.sleep(2)
 	member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
 	last_id = member[len(member) - 1].id
 	# except:
@@ -772,10 +800,10 @@ def new_key_word(request):
 		response = request.POST['response']
 		response_type = request.POST['response_type']
 		Keyword.objects.create(key=keyword, response=response, response_type=response_type)
-		return redirect('https://140.119.19.33:8080/key/')
+		return redirect("/key/")
 	else:
 		""
-	return render(request,"insert_keyword.html",locals())
+	return render(request, 'insert_keyword.html',locals())
 
 def update_key_word(request, id):
 	keyword_id = request.GET['id']
@@ -785,7 +813,7 @@ def update_key_word(request, id):
 		response = request.POST['response']
 		response_type = request.POST['response_type']
 		update.update(key=keyword, response=response, response_type=response_type)
-		return redirect("https://140.119.19.33:8080/key/")
+		return redirect("/key/")
 	else:
 		""
 	return render(request, 'update_keyword.html',locals())
