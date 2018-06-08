@@ -180,10 +180,10 @@ def response_line(pk, text):
 
 
 		for t in tomorrow(str((oneTime.hour+8)%24)+":"+str(oneTime.minute)):
-			url = "https://140.119.19.33:8080/schedule"
+			url = "http://140.119.19.33:8000/schedule/"
 
 			# try:
-			requests.post(url, json={'time': t, 'line_id': name.email})
+			requests.post(url, data={'time': t, 'line_id': name.email},verify=False)
 			print (name.email)
 			# except:
 			#     print('fail')
@@ -202,9 +202,9 @@ def response_line(pk, text):
 			for oneTime in set_time:
 				# a = int(set_time[i][0])
 				# b = int(set_time[i][1])
-				url = "https://140.119.19.33:8080/schedule"
+				url = "http://140.119.19.33:8000/schedule/"
 				# try:
-				requests.post(url, json={'time': oneTime, 'line_id': name.email})
+				requests.post(url, data={'time': oneTime, 'line_id': name.email},verify=False)
 				print (name.email)
 				# except:
 				#     print('fail')
@@ -267,17 +267,30 @@ def response_line(pk, text):
 
 # line API
 def schedule(request):
-	if request.method == 'POST':
-		time = request.POST["time"]
-		line_id = request.POST["line_id"]
-		Schedule.objects.create(func='dialog.tasks.line',
-								# hook = '',
-								args=line_id,
-								# kwargs={'title': "hi", 'text': 'trash'},
+    if request.method == 'POST':
+        try:
+            print ('1')
+            time = request.POST['time']
+            print (time)
+            print ('2')
+            line_id = request.POST["line_id"]
+            print (line_id)
+            Schedule.objects.create(func='dialog.tasks.line',
+                                    # hook = '',
+                                    #args='U91ee0f57e99fb8745aa8cecc9d63380f',
+                                    kwargs={'line_id': line_id},
 
-								schedule_type=Schedule.ONCE,
-								next_run=time
-								)
+                                    schedule_type=Schedule.ONCE,
+                                    next_run=time
+                                    )
+            print ('finish')
+        except Exception as e:
+            print (e)
+    elif request.method == 'GET':
+        line_id = request.GET["line_id"]
+        push_line_one(line_id)
+    return JsonResponse({'resp':'hi'}, safe=False)
+
 # def call_line(request):
 #     push_line_one(line_id)
 
@@ -315,6 +328,10 @@ def callback(request):
 					try:
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
+						corrects = Member.objects.filter(password="line")
+						all_id = []
+						for correct in corrects:
+							all_id.append(correct.email)
 
 					# 若沒pk,將使用者加到Member資料庫
 					except:
@@ -335,33 +352,22 @@ def callback(request):
 						message2 = TextSendMessage(text="你的名字 : " + profile.display_name)
 						message3 = TextSendMessage(text="你的照片 : " + profile.picture_url)
 						message = [message1, message2, message3]
-					# Dialog.objects.create(content=text, member=name)
 
 					elif text == "資料庫id":
-						who = Member.objects.get(email=event.source.user_id)
-						pk = who.id
 						message = TextSendMessage(text=pk)
-					# Dialog.objects.create(content=text, member=name)
 
 					# 為推播做準備的"全部id"
 					elif text == "抓全部id":
-						corrects = Member.objects.filter(password="line")
-						all_id = []
-						for correct in corrects:
-							all_id.append(correct.email)
 						message = TextSendMessage(text=str(all_id))
-					# Dialog.objects.create(content=text, member=name)
 
 					# 推播
 					elif "aaa" in text:
 						push_line_all()
-						message = TextSendMessage(text="已完成推播")
-					# Dialog.objects.create(content=text, member=name)
+						#message = TextSendMessage(text="已完成推播")
+
 					# 吃藥
 					elif "bbb" in text:
 						push_line_one(who.email)
-
-
 
 					# 尋找醫院
 					elif "尋找醫院" in text:
@@ -394,7 +400,7 @@ def callback(request):
 									text=choice))
 
 							message = TemplateSendMessage(
-								alt_text='Button template',
+								alt_text=response[0],
 								template=ButtonsTemplate(
 									text=response[0],
 									actions=action
@@ -403,13 +409,15 @@ def callback(request):
 						elif back['type'] == 3:
 							if ";" in back['text']:
 								responses = back['text'].split(';')
-								message1 = ImageSendMessage(
-									original_content_url=responses[0],
-									preview_image_url=responses[0]
-								)
-								message = [message1]
-								for response in responses[1:]:
-									message.append(TextSendMessage(text=response))
+								message = []
+								for response in responses:
+									if "https://" in response:
+										message.append(ImageSendMessage(
+										original_content_url=response,
+										preview_image_url=response
+										))
+									else:
+										message.append(TextSendMessage(text=response))
 
 							else:
 								message = ImageSendMessage(
@@ -478,8 +486,13 @@ def push_line_all():
 
 def push_line_one(line_id):
 	try:
-		message = TemplateSendMessage(
-			alt_text='Button template',
+		who = Member.objects.get(email=line_id)
+		pk = who.id
+		member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
+		name = Member.objects.get(pk=pk)
+
+		message1 = TemplateSendMessage(
+			alt_text='Crobot提醒你吃藥拉',
 			template=ButtonsTemplate(
 				text="Crobot提醒你吃藥拉",
 				actions=[
@@ -494,6 +507,9 @@ def push_line_one(line_id):
 				]
 			)
 		)
+		Dialog.objects.create(content="Crobot提醒你吃藥拉", member=name)
+		message2 = StickerSendMessage(package_id="2", sticker_id="514")
+		message = [message1, message2]
 		line_bot_api.push_message(line_id, message)
 	except:
 		pass
@@ -789,7 +805,7 @@ def post(request, pk):
 
 
 def key_word(request):
-	keyword_list = Keyword.objects.all()
+	keyword_list = Keyword.objects.all().order_by('id')
 	return render(request, 'key_word.html', {
 		'keyword_list': keyword_list,
 	})
