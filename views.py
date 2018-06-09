@@ -92,7 +92,7 @@ def get_advice(stm, common= True):
 
 
 	if len(result) ==0:
-		res += "無法判別，請提供更多資訊"
+		res += "無法判別，請選擇以下動作"
 		return res, sorted_d
 
 	res += "可能是："
@@ -221,7 +221,7 @@ def response_line(pk, text):
 		Dialog.objects.create(content=response, member=name, who=False, from_key=member[len(member)-1].from_key)
 		back = {'type': 1, 'text': response}
 
-		if not response == "無法判別，請提供更多資訊":
+		if not response == "無法判別，請選擇以下動作":
 
 			choice = "T"
 			all = ["查詢預防"+desease[-1][0], '嚴重疾病', '尋找醫院','知道了謝謝']
@@ -237,7 +237,7 @@ def response_line(pk, text):
 		Dialog.objects.create(content=response, member=name, who=False, from_key=member[len(member) - 1].from_key)
 		back = {'type': 1, 'text': response}
 
-		if not response == "無法判別，請提供更多資訊":
+		if not response == "無法判別，請選擇以下動作":
 			choice = "T"
 			all = ["查詢預防" + desease[0][0], '尋找醫院', '知道了謝謝']
 			back = {'type': 2, 'text': response + ";" + ",".join(all)}
@@ -312,12 +312,17 @@ def callback(request):
 				line_id = event.source.user_id
 				profile = line_bot_api.get_profile(event.source.user_id)
 				line_name = profile.display_name
-				'''Member.objects.create(name=line_name+"_line", email=line_id, password="line")'''
-				message1 = TextSendMessage(text=line_name + "\n歡迎你跟Crobot做朋友!\n快來和Crobot做朋友吧!")
+				Member.objects.create(name=line_name+"_line", email=line_id, password="line")
+				message1 = TextSendMessage(text=line_name + "\n歡迎你跟Crobot做朋友!\n快來和Crobot聊天吧!")
 				message2 = StickerSendMessage(package_id="1", sticker_id="2")
 				message = [message1, message2]
 				line_bot_api.reply_message(event.reply_token, message)
 
+			#解除好友事件
+			elif isinstance(event, UnfollowEvent):
+				line_id = event.source.user_id
+				delete = Member.objects.get(email=line_id)
+				delete.delete()
 
 			# 訊息事件
 			elif isinstance(event, MessageEvent):
@@ -328,10 +333,6 @@ def callback(request):
 					try:
 						who = Member.objects.get(email=event.source.user_id)
 						pk = who.id
-						corrects = Member.objects.filter(password="line")
-						all_id = []
-						for correct in corrects:
-							all_id.append(correct.email)
 
 					# 若沒pk,將使用者加到Member資料庫
 					except:
@@ -352,34 +353,62 @@ def callback(request):
 						message2 = TextSendMessage(text="你的名字 : " + profile.display_name)
 						message3 = TextSendMessage(text="你的照片 : " + profile.picture_url)
 						message = [message1, message2, message3]
+					# Dialog.objects.create(content=text, member=name)
 
 					elif text == "資料庫id":
+						who = Member.objects.get(email=event.source.user_id)
+						pk = who.id
 						message = TextSendMessage(text=pk)
+					# Dialog.objects.create(content=text, member=name)
 
 					# 為推播做準備的"全部id"
 					elif text == "抓全部id":
+						corrects = Member.objects.filter(password="line")
+						all_id = []
+						for correct in corrects:
+							all_id.append(correct.email)
 						message = TextSendMessage(text=str(all_id))
+					# Dialog.objects.create(content=text, member=name)
 
 					# 推播
 					elif "aaa" in text:
 						push_line_all()
-						#message = TextSendMessage(text="已完成推播")
-
+						message = TextSendMessage(text="已完成推播")
+					# Dialog.objects.create(content=text, member=name)
 					# 吃藥
 					elif "bbb" in text:
 						push_line_one(who.email)
 
+
+
 					# 尋找醫院
 					elif "尋找醫院" in text:
 						message1 = TextSendMessage(text="Crobot不知道你在哪裡><\n傳送位置訊息給我吧!\n教學如下↓")
-						message2 = TextSendMessage(text="鍵盤>箭頭>加號>位置訊息>公開所在位置\n這樣Crobot就可以幫你定位囉!")
+						#message2 = TextSendMessage(text="鍵盤>箭頭>加號>位置訊息>公開所在位置\n這樣Crobot就可以幫你定位囉!")
+						message2 = ImageSendMessage(
+									original_content_url="https://scontent-tpe1-1.xx.fbcdn.net/v/t1.15752-9/34825102_1957097571027541_7772582648915951616_n.jpg?_nc_cat=0&_nc_eui2=AeH0gQO40DMeNzuZGOdglB8JDu7-Mbc2-5Ri5Pc15iXehKfUL1RfVnGgnFCAhs6V0iQbRhSioYox-m_FBAeu0CZWzzpy1Plf0ouMU4UpjB_pCg&oh=a60c915123b0771592548110caf581dc&oe=5BBEC6E7",
+									preview_image_url="https://scontent-tpe1-1.xx.fbcdn.net/v/t1.15752-9/34825102_1957097571027541_7772582648915951616_n.jpg?_nc_cat=0&_nc_eui2=AeH0gQO40DMeNzuZGOdglB8JDu7-Mbc2-5Ri5Pc15iXehKfUL1RfVnGgnFCAhs6V0iQbRhSioYox-m_FBAeu0CZWzzpy1Plf0ouMU4UpjB_pCg&oh=a60c915123b0771592548110caf581dc&oe=5BBEC6E7"
+								)
 						message = [message1, message2]
 
 					# 使用response_line(pk, text回訊息)
 					else:
 						back = response_line(pk, text)
 						if back['type'] == 1:
-							if "？" in back['text']:
+							if back['text'] == "無法判斷時間抱歉":
+								message1 = TextSendMessage(text=back['text'])
+								message2 = TemplateSendMessage(
+									alt_text='Button template',
+									template=ButtonsTemplate(
+										text="再設一次時間吧！",
+										actions=[MessageTemplateAction(
+										label="提醒吃藥",
+										text="提醒吃藥")]
+									)
+								)
+								message = [message1, message2]
+
+							elif "？" in back['text'] or "?" in back['text']:
 								message1 = TextSendMessage(text=back['text'])
 								message2 = StickerSendMessage(package_id="2", sticker_id="149")
 								message = [message1, message2]
@@ -430,7 +459,7 @@ def callback(request):
 
 				# 貼圖訊息
 				elif isinstance(event.message, StickerMessage):
-					message = TextSendMessage(text="抱歉Crobot目前沒辦法解讀非文字訊息！但我會隨機生成貼圖XD")
+					message = TextSendMessage(text="抱歉Crobot目前沒辦法解讀非文字訊息><！")
 					message2 = StickerSendMessage(package_id="2", sticker_id=random.randint(140, 179))
 					line_bot_api.reply_message(event.reply_token, [message, message2])
 
@@ -450,7 +479,9 @@ def callback(request):
 
 				# 其餘訊息
 				else:
-					line_bot_api.reply_message(event.reply_token, TextSendMessage(text="其餘事件"))
+					message = TextSendMessage(text="抱歉Crobot目前沒辦法解讀非文字訊息><！")
+					message2 = StickerSendMessage(package_id="2", sticker_id=random.randint(140, 179))
+					line_bot_api.reply_message(event.reply_token, [message, message2])
 
 		return HttpResponse()
 	else:
@@ -635,6 +666,7 @@ def post(request, pk):
 
 
 	member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
+	member = member.order_by("id")
 	name = Member.objects.get(pk=pk)
 	loc = None
 	choice = None
@@ -743,7 +775,7 @@ def post(request, pk):
 			response, desease = get_advice(text)
 			Dialog.objects.create(content=response, member=name, who=False, from_key=member[len(member)-1].from_key)
 
-			if not response == "無法判別，請提供更多資訊":
+			if not response == "無法判別，請選擇以下動作":
 				choice = "T"
 				all = ["查詢預防"+desease[-1][0], '嚴重疾病', '尋找醫院','知道了謝謝']
 			else:
@@ -754,7 +786,7 @@ def post(request, pk):
 			response, desease = get_advice(member[len(member)-2].content,False)
 			Dialog.objects.create(content=response, member=name, who=False, from_key=member[len(member) - 1].from_key)
 
-			if not response == "無法判別，請提供更多資訊":
+			if not response == "無法判別，請選擇以下動作":
 				choice = "T"
 				all = ["查詢預防" + desease[0][0], '尋找醫院', '知道了謝謝']
 			else:
@@ -798,7 +830,10 @@ def post(request, pk):
 
 	# time.sleep(2)
 	member = Dialog.objects.filter(member=Member.objects.get(pk=pk))
-	last_id = member[len(member) - 1].id
+	member = member.order_by("id")
+	last_id = 1
+	if len(member)>0:
+		member[len(member) - 1].id
 	# except:
 	#     Dialog.objects.create(content="出了點小錯抱歉等等喔", member=name, who=False)
 	return render(request, 'dialog.html', locals())
